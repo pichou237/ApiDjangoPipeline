@@ -44,9 +44,9 @@ jobs:
       - name: Run Safety
         run: |
           if [ -f dependance.txt ]; then
-            safety check -r requirements.txt --full-report
+            safety check -r dependance.txt --full-report
           else
-            echo "requirements.txt not found, skipping Safety check."
+            echo "dependance.txt not found, skipping Safety check."
           fi
 
       - name: Upload Bandit report
