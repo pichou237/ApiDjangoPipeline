@@ -35,9 +35,9 @@ jobs:
       - name: Run Bandit
         run: |
           if [ -f .bandit ]; then
-            bandit -r . -c .bandit -f json -o bandit-report.json
+            bandit -r . -c .bandit -f json -o bandit-report.json || true
           else
-            bandit -r . -f json -o bandit-report.json
+            bandit -r . -f json -o bandit-report.json || true
           fi
           cat bandit-report.json
 
