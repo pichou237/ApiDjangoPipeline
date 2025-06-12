@@ -11,32 +11,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Récupérer le code du dépôt
+      # Récupérer le code du dépôt
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Installer Python et les dépendances
+      # Installer Python et les dépendances
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Install dependencies and security tools
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install bandit safety
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          pip install bandit==1.7.7 safety==2.3.5
 
-      # 3️⃣ Analyse de sécurité avec Bandit
+      # Analyse de sécurité avec Bandit
       - name: Run Bandit
         run: |
-          bandit -r . -f json -o bandit-report.json
+          if [ -f .bandit ]; then
+            bandit -r . -c .bandit -f json -o bandit-report.json
+          else
+            bandit -r . -f json -o bandit-report.json
+          fi
           cat bandit-report.json
 
-      # 4️⃣ Analyse de sécurité des dépendances avec Safety
+      # Analyse des dépendances avec Safety
       - name: Run Safety
+        if: ${{ exists('requirements.txt') }}
         run: |
           safety check -r requirements.txt --full-report
+
+      # Upload du rapport Bandit
       - name: Upload Bandit report
         uses: actions/upload-artifact@v4
         with:
