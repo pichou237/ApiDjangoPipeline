@@ -41,9 +41,12 @@ jobs:
 
       # Analyse des dépendances avec Safety
       - name: Run Safety
-        if: ${{ exists('requirements.txt') }}
         run: |
-          safety check -r requirements.txt --full-report
+          if [ -f requirements.txt ]; then
+            safety check -r requirements.txt --full-report
+          else
+            echo "requirements.txt not found, skipping Safety check."
+          fi
 
       # Upload du rapport Bandit
       - name: Upload Bandit report
