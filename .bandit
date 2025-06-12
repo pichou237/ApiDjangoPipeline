@@ -1,6 +1,6 @@
-skips:
-  - B101
-  - B303
+# skips:
+#   - B101
+#   - B303
 exclude:
   - tests
   - venv
