@@ -11,11 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Récupérer le code du dépôt
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Installer Python et les dépendances
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-dev libxslt-dev python3-dev build-essential
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -29,7 +32,6 @@ jobs:
           fi
           pip install bandit==1.7.7 safety==2.3.5
 
-      # Analyse de sécurité avec Bandit
       - name: Run Bandit
         run: |
           if [ -f .bandit ]; then
@@ -39,7 +41,6 @@ jobs:
           fi
           cat bandit-report.json
 
-      # Analyse des dépendances avec Safety
       - name: Run Safety
         run: |
           if [ -f requirements.txt ]; then
@@ -48,7 +49,6 @@ jobs:
             echo "requirements.txt not found, skipping Safety check."
           fi
 
-      # Upload du rapport Bandit
       - name: Upload Bandit report
         uses: actions/upload-artifact@v4
         with:
