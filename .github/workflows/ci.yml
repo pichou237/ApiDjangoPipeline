@@ -43,7 +43,7 @@ jobs:
 
       - name: Run Safety
         run: |
-          if [ -f requirements.txt ]; then
+          if [ -f dependance.txt ]; then
             safety check -r requirements.txt --full-report
           else
             echo "requirements.txt not found, skipping Safety check."
