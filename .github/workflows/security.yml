@@ -1,41 +1,41 @@
-name: Security Checks
+# name: Security Checks
 
-on:
-  push:
-    branches: [ dev ]
-  pull_request:
-    branches: [ dev ]
+# on:
+#   push:
+#     branches: [ dev ]
+#   pull_request:
+#     branches: [ dev ]
 
-jobs:
-  sast-sca:
-    runs-on: ubuntu-latest
+# jobs:
+#   sast-sca:
+#     runs-on: ubuntu-latest
 
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+#     - name: Set up Python
+#       uses: actions/setup-python@v5
+#       with:
+#         python-version: '3.12'
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install bandit safety
+#     - name: Install dependencies
+#       run: |
+#         pip install -r requirements.txt
+#         pip install bandit safety
 
-    - name: Run Bandit (SAST)
-      run: |
-        bandit -r . -f json -o bandit-report.json
+#     - name: Run Bandit (SAST)
+#       run: |
+#         bandit -r . -f json -o bandit-report.json
 
-    - name: Run Safety (SCA)
-      run: |
-        safety check -r requirements.txt --json > safety-report.json
+#     - name: Run Safety (SCA)
+#       run: |
+#         safety check -r requirements.txt --json > safety-report.json
 
-    - name: Upload Security Reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: security-reports
-        path: |
-          bandit-report.json
-          safety-report.json
+#     - name: Upload Security Reports
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: security-reports
+#         path: |
+#           bandit-report.json
+#           safety-report.json

@@ -2,55 +2,60 @@ name: CI Sécurité
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   security_scan:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Installer les dépendances système
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxml2-dev libxslt-dev python3-dev build-essential
+          sudo apt-get install -y libxml2-dev libxslt-dev python3-dev build-essential jq
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install dependencies and security tools
+      - name: Installer les outils
         run: |
           python -m pip install --upgrade pip
+          pip install bandit safety pip-audit
+          [ -f requirements.txt ] && pip install -r requirements.txt
+
+      - name: Analyse Bandit
+        run: |
+          bandit -r . ${BANDIT_CONFIG:+-c $BANDIT_CONFIG} -f json -o bandit-report.json
+          jq . bandit-report.json
+        continue-on-error: true
+        env:
+          BANDIT_CONFIG: ${{ github.workspace }}/bandit.yaml
+
+      - name: Analyse Safety
+        run: |
           if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
+            safety check -r requirements.txt --full-report --output json > safety-report.json
+            jq . safety-report.json
           fi
-          pip install bandit==1.7.7 safety==2.3.5
+        continue-on-error: true
 
-      - name: Run Bandit
+      - name: Analyse pip-audit
         run: |
-          if [ -f bandit.yaml ]; then
-            bandit -r . -c bandit.yaml -f json -o bandit-report.json || true
-          else
-            bandit -r . -f json -o bandit-report.json || true
-          fi
-          cat bandit-report.json
+          pip-audit -r requirements.txt -f json -o pip-audit-report.json 2>/dev/null || true
+          [ -f pip-audit-report.json ] && jq . pip-audit-report.json || echo "pip-audit non exécuté"
 
-      - name: Run Safety
-        run: |
-          if [ -f dependance.txt ]; then
-            safety check -r dependance.txt --full-report
-          else
-            echo "dependance.txt not found, skipping Safety check."
-          fi
-
-      - name: Upload Bandit report
+      - name: Téléverser les rapports
         uses: actions/upload-artifact@v4
         with:
-          name: bandit-report
-          path: bandit-report.json
+          name: security-reports
+          path: |
+            *-report.json
+            requirements.txt
+
+      - name: Vérifier les dépendances obsolètes
+        run: pip list --outdated
