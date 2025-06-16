@@ -2,9 +2,9 @@ name: CI Sécurité
 
 on:
   push:
-    branches: [master]
+    branches: [master , dev , feature/dev]
   pull_request:
-    branches: [master]
+    branches: [master , dev , feature/dev]
 
 jobs:
   security_scan:
