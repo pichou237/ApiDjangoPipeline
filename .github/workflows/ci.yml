@@ -1,53 +1,89 @@
-name: CI Sécurité
+name: CI Sécurité Python
 
 on:
   push:
-    branches: [master , dev , feature/dev]
+    branches: [ main, dev ,feature/dev]
   pull_request:
-    branches: [master , dev , feature/dev]
+    branches: [ main, dev ,feature/dev]
 
 jobs:
-  security_scan:
+  security_analysis:
     runs-on: ubuntu-latest
+    name: Analyse de sécurité Python
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout du code
+        uses: actions/checkout@v4
 
       - name: Installer les dépendances système
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxml2-dev libxslt-dev python3-dev build-essential jq
+          sudo apt-get install -y \
+            libxml2-dev \
+            libxslt-dev \
+            python3-dev \
+            build-essential \
+            jq  # Pour le traitement JSON
 
-      - uses: actions/setup-python@v5
+      - name: Configurer Python 3.12
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
-      - name: Installer les outils
+      - name: Installer les dépendances
         run: |
           python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
           pip install bandit safety pip-audit
-          [ -f requirements.txt ] && pip install -r requirements.txt
 
-      - name: Analyse Bandit
+      - name: Analyse de code avec Bandit
+        id: bandit-scan
         run: |
-          bandit -r . ${BANDIT_CONFIG:+-c $BANDIT_CONFIG} -f json -o bandit-report.json
-          jq . bandit-report.json
+          CONFIG_FILE=""
+          [ -f bandit.yaml ] && CONFIG_FILE="-c bandit.yaml"
+          
+          bandit -r . $CONFIG_FILE -f json -o bandit-report.json
+          
+          # Analyse des résultats
+          HIGH_VULNS=$(jq '.results[] | select(.issue_severity == "HIGH") | .issue_text' bandit-report.json | wc -l)
+          echo "high_vulns=$HIGH_VULNS" >> $GITHUB_OUTPUT
+          
+          cat bandit-report.json | jq .
         continue-on-error: true
-        env:
-          BANDIT_CONFIG: ${{ github.workspace }}/bandit.yaml
 
-      - name: Analyse Safety
+      - name: Analyse des dépendances avec Safety
+        id: safety-scan
         run: |
           if [ -f requirements.txt ]; then
-            safety check -r requirements.txt --full-report --output json > safety-report.json
-            jq . safety-report.json
+            # Version JSON pour l'intégration
+            safety check -r requirements.txt --output json > safety-report.json
+            
+            # Version lisible dans les logs
+            echo "=== RAPPORT SAFETY ==="
+            safety check -r requirements.txt --full-report || true
+            
+            # Comptage des vulnérabilités
+            VULNS=$(jq '.vulnerabilities | length' safety-report.json)
+            echo "vulns=$VULNS" >> $GITHUB_OUTPUT
+          else
+            echo "Fichier requirements.txt non trouvé"
           fi
         continue-on-error: true
 
-      - name: Analyse pip-audit
+      - name: Analyse avec pip-audit (complémentaire)
         run: |
-          pip-audit -r requirements.txt -f json -o pip-audit-report.json 2>/dev/null || true
-          [ -f pip-audit-report.json ] && jq . pip-audit-report.json || echo "pip-audit non exécuté"
+          if [ -f requirements.txt ]; then
+            pip-audit -r requirements.txt -f json -o pip-audit-report.json
+            [ -s pip-audit-report.json ] && jq . pip-audit-report.json || echo "Aucune vulnérabilité détectée"
+          fi
+        continue-on-error: true
+
+      - name: Vérifier les dépendances obsolètes
+        run: |
+          pip list --outdated --format=columns
 
       - name: Téléverser les rapports
         uses: actions/upload-artifact@v4
@@ -57,5 +93,12 @@ jobs:
             *-report.json
             requirements.txt
 
-      - name: Vérifier les dépendances obsolètes
-        run: pip list --outdated
+      - name: Évaluer les résultats
+        if: |
+          steps.bandit-scan.outputs.high_vulns > 0 ||
+          steps.safety-scan.outputs.vulns > 0
+        run: |
+          echo "::error::Vulnérabilités critiques détectées :"
+          echo "- Bandit : ${{ steps.bandit-scan.outputs.high_vulns }} vulnérabilités HIGH"
+          echo "- Safety : ${{ steps.safety-scan.outputs.vulns }} vulnérabilités"
+          exit 1
